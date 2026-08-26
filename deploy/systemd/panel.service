@@ -1,0 +1,21 @@
+[Unit]
+Description=WG Route Panel
+After=network.target nftables.service
+
+[Service]
+Type=simple
+User=wgpanel
+Group=wgpanel
+ExecStart=/opt/wg-route-panel/bin/panel
+Restart=on-failure
+RestartSec=5s
+
+# Security hardening (Least Privilege)
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/etc/wg-route-panel /var/lib/wg-route-panel /var/log/wg-route-panel
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
