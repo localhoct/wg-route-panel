@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 BINARY := bin/panel
-.PHONY: build run test lint clean install doctor docker-build docker-up docker-down docker-logs
+.PHONY: build run test lint clean install start doctor docker-build docker-up docker-down docker-logs
 build:
 	go build -trimpath -ldflags="-s -w" -o $(BINARY) ./cmd/panel
 run:
@@ -14,6 +14,8 @@ clean:
 	rm -rf bin data
 install: build
 	sudo ./scripts/install.sh
+start:
+	./scripts/start.sh
 doctor:
 	./scripts/doctor.sh
 docker-build:
