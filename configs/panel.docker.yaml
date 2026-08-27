@@ -1,7 +1,8 @@
 listen_addr: "0.0.0.0:9090"
-base_url: "https://localhost:9090"
+base_url: "http://localhost:9090"
 session_secret: "" # required via PANEL_SESSION_SECRET
-secure_cookies: true
+secure_cookies: false
+allow_insecure_http: true # temporary HTTP opt-in; enable HTTPS for internet exposure
 trusted_proxies: []
 db_path: "/var/lib/wg-route-panel/panel.db"
 wireguard:

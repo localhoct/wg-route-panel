@@ -33,6 +33,7 @@ Docker image built. Next:
 2. Create the administrator:
    PANEL_ADMIN_PASSWORD_INIT='a-long-random-password' docker compose run --rm panel create-admin
 3. Start the stack: docker compose up -d
-4. Put HTTPS reverse proxying in front of 127.0.0.1:9090, or restrict port 9090 with host firewall rules.
+4. Open http://127.0.0.1:9090 locally. For remote access, add your source CIDR to panel_allow and api_allow or use an SSH tunnel.
 5. Check health: docker compose ps && curl http://127.0.0.1:9090/healthz
+6. Add HTTPS later before exposing port 9090 to the public internet.
 NEXT

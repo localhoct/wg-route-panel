@@ -15,20 +15,21 @@ import (
 )
 
 type Config struct {
-	ListenAddr     string        `yaml:"listen_addr"`
-	BaseURL        string        `yaml:"base_url"`
-	SessionSecret  string        `yaml:"session_secret"`
-	DBPath         string        `yaml:"db_path"`
-	SecureCookies  bool          `yaml:"secure_cookies"`
-	TrustedProxies []string      `yaml:"trusted_proxies"`
-	WireGuard      WGConfig      `yaml:"wireguard"`
-	SingBox        SingBoxConfig `yaml:"sing_box"`
-	Xray           XrayConfig    `yaml:"xray"`
-	Geosite        GeositeConfig `yaml:"geosite"`
-	DNS            DNSConfig     `yaml:"dns"`
-	SOCKS          SOCKSConfig   `yaml:"socks"`
-	Firewall       FWConfig      `yaml:"firewall"`
-	Log            LogConfig     `yaml:"log"`
+	ListenAddr        string        `yaml:"listen_addr"`
+	BaseURL           string        `yaml:"base_url"`
+	SessionSecret     string        `yaml:"session_secret"`
+	DBPath            string        `yaml:"db_path"`
+	SecureCookies     bool          `yaml:"secure_cookies"`
+	AllowInsecureHTTP bool          `yaml:"allow_insecure_http"`
+	TrustedProxies    []string      `yaml:"trusted_proxies"`
+	WireGuard         WGConfig      `yaml:"wireguard"`
+	SingBox           SingBoxConfig `yaml:"sing_box"`
+	Xray              XrayConfig    `yaml:"xray"`
+	Geosite           GeositeConfig `yaml:"geosite"`
+	DNS               DNSConfig     `yaml:"dns"`
+	SOCKS             SOCKSConfig   `yaml:"socks"`
+	Firewall          FWConfig      `yaml:"firewall"`
+	Log               LogConfig     `yaml:"log"`
 }
 type WGConfig struct {
 	InterfaceName string `yaml:"interface_name"`
@@ -142,11 +143,14 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("listen_addr: %w", e)
 	}
 	u, e := url.Parse(c.BaseURL)
-	if e != nil || u.Host == "" {
+	if e != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return errors.New("invalid base_url")
 	}
-	if host != "127.0.0.1" && host != "::1" && u.Scheme != "https" {
-		return errors.New("HTTPS base_url required when panel is not loopback-only")
+	if u.Scheme == "http" && c.SecureCookies {
+		return errors.New("secure_cookies must be false when base_url uses HTTP")
+	}
+	if host != "127.0.0.1" && host != "::1" && u.Scheme != "https" && !c.AllowInsecureHTTP {
+		return errors.New("HTTPS base_url required when panel is not loopback-only unless allow_insecure_http is true")
 	}
 	if c.WireGuard.InterfaceName == "" || strings.ContainsAny(c.WireGuard.InterfaceName, "/ \\;'") {
 		return errors.New("invalid WireGuard interface name")

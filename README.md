@@ -19,7 +19,7 @@ WG Route Panel is a secure, self-hosted administration panel for a **sing-box us
 ## Architecture
 
 ```text
-Browser/API --HTTPS proxy--> host:9090 -- host-network Docker container
+Browser/API --HTTP:9090--> host-network Docker container
                                          |-- Go panel (user wgpanel) --> SQLite
                                          |-- Supervisor
                                          |    |-- sing-box --> userspace WireGuard --> wg0 system interface
@@ -62,9 +62,11 @@ curl http://127.0.0.1:9090/healthz
 
 Do not leave the initial password in shell history. Without `PANEL_ADMIN_PASSWORD_INIT`, `create-admin` prompts on standard input.
 
-## HTTPS and port 9090
+## HTTP on port 9090
 
-The Docker configuration listens on `0.0.0.0:9090` and requires an HTTPS `base_url` because it is not loopback-only. Restrict 9090 with host firewall rules and place Caddy or Nginx in front of it. Example Caddy configuration:
+The included Docker configuration listens on `0.0.0.0:9090` over plain HTTP with `allow_insecure_http: true` and `secure_cookies: false`. Open `http://127.0.0.1:9090` on the server after starting Compose. For another LAN device, first add that device or subnet to both the `panel_allow` and `api_allow` nftables sets. This explicit opt-in is suitable only for a trusted LAN or temporary setup.
+
+When you are ready for HTTPS, place Caddy or Nginx in front of it. Example Caddy configuration:
 
 ```caddy
 panel.example.com {
@@ -73,9 +75,9 @@ panel.example.com {
 }
 ```
 
-Set `base_url: "https://panel.example.com"` in `configs/panel.docker.yaml` and retain `secure_cookies: true`. The health endpoint is intentionally unauthenticated and returns only `{ "status": "ok" }`.
+For HTTPS, set `base_url: "https://panel.example.com"`, change `secure_cookies` to `true`, and remove or disable `allow_insecure_http`. The health endpoint is intentionally unauthenticated and returns only `{ "status": "ok" }`.
 
-For a temporary local-only HTTP test, bind the panel to `127.0.0.1:9090`, set an `http://127.0.0.1:9090` base URL, and disable secure cookies. Never use that mode across an untrusted network.
+Never expose plain HTTP across the public internet because credentials and session cookies can be intercepted.
 
 ## WireGuard through sing-box
 
@@ -119,6 +121,10 @@ Health combines Supervisor state, existence of `wg0`, RX/TX counters from sysfs,
 ```bash
 sudo nft -c -f deploy/nftables/wg-route-panel.nft
 sudo nft -f deploy/nftables/wg-route-panel.nft
+
+# Example: allow one LAN administrator to reach the HTTP panel and API.
+sudo nft add element inet wg_route_panel panel_allow '{ 192.168.1.50/32 }'
+sudo nft add element inet wg_route_panel api_allow '{ 192.168.1.50/32 }'
 sudo nft list table inet wg_route_panel
 ```
 
@@ -181,11 +187,11 @@ docker compose config
 PANEL_SESSION_SECRET="$(openssl rand -base64 48)" docker compose build
 ```
 
-CI runs formatting, vet, race tests, a Go build, a Docker build, and runtime version checks. The manual deploy workflow uploads the Compose project to `/opt/wg-route-panel`, runs the Docker-first installer, and starts the stack; server-side `.env` and `data` are preserved.
+The repository CI workflow runs formatting, vet, race tests, and a Go build. Validate Compose locally with the commands above; Docker workflow changes are intentionally not part of this pull request because the connected GitHub App cannot update workflow files.
 
 ## Security notes
 
-- Do not expose 9090, DNS, or SOCKS publicly without HTTPS/authentication and explicit source ACLs.
+- Plain HTTP on 9090 is enabled only as an explicit temporary opt-in; limit it to localhost or trusted source ACLs and enable HTTPS before internet exposure.
 - Host networking and `NET_ADMIN` are security-sensitive. Keep the image pinned, inspect updates, and never add `privileged: true`.
 - Restrict Docker daemon access; membership in the Docker group is effectively root access.
 - Use MFA, long unique credentials, SSH keys, a management network, automatic security updates, and a recovery console.
