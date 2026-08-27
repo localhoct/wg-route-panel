@@ -1,0 +1,38 @@
+listen_addr: "0.0.0.0:9090"
+base_url: "https://localhost:9090"
+session_secret: "" # required via PANEL_SESSION_SECRET
+secure_cookies: true
+trusted_proxies: []
+db_path: "/var/lib/wg-route-panel/panel.db"
+wireguard:
+  interface_name: "wg0"
+  config_path: "/var/lib/wg-route-panel/wireguard/wg0.conf"
+  probe_address: ""
+sing_box:
+  binary_path: "/usr/local/bin/sing-box"
+  config_path: "/var/lib/wg-route-panel/sing-box/config.json"
+  manager: "supervisor"
+  supervisorctl_path: "/usr/bin/supervisorctl"
+xray:
+  binary_path: "/usr/local/bin/xray"
+  config_path: "/var/lib/wg-route-panel/xray/config.json"
+  manager: "supervisor"
+  service_name: "xray"
+  supervisorctl_path: "/usr/bin/supervisorctl"
+geosite:
+  path: "/var/lib/wg-route-panel/geosite/geosite.dat"
+  update_url: "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"
+  sha256: ""
+dns:
+  listen_addr: "127.0.0.1"
+  port: 5353
+  direct_upstream: "1.1.1.1"
+  tunnel_upstream: "8.8.8.8"
+socks:
+  listen_addr: "127.0.0.1"
+  port: 1080
+firewall:
+  enabled: true
+log:
+  level: "info"
+  file: "/var/lib/wg-route-panel/panel.log"

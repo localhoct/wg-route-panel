@@ -2,53 +2,28 @@ package repository
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
+	_ "modernc.org/sqlite"
 	"os"
 	"path/filepath"
-
-	_ "modernc.org/sqlite"
 )
 
-func InitDB(dbPath string) (*sql.DB, error) {
-	// Ensure directory exists
-	dir := filepath.Dir(dbPath)
-	if err := os.MkdirAll(dir, 0750); err != nil {
-		return nil, fmt.Errorf("failed to create db directory: %w", err)
-	}
+//go:embed migrations/0001_init.sql
+var migration string
 
-	db, err := sql.Open("sqlite", dbPath+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)")
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+func InitDB(path string) (*sql.DB, error) {
+	if e := os.MkdirAll(filepath.Dir(path), 0750); e != nil {
+		return nil, e
 	}
-
-	if err := db.Ping(); err != nil {
-		return nil, fmt.Errorf("failed to ping database: %w", err)
+	db, e := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
+	if e != nil {
+		return nil, e
 	}
-
-	if err := runMigrations(db); err != nil {
-		return nil, fmt.Errorf("failed to run migrations: %w", err)
+	db.SetMaxOpenConns(1)
+	if _, e = db.Exec(migration); e != nil {
+		db.Close()
+		return nil, fmt.Errorf("migrate: %w", e)
 	}
-
 	return db, nil
-}
-
-func runMigrations(db *sql.DB) error {
-	migrationFile := "migrations/0001_init.sql"
-	// Fallback for when running from different directories
-	if _, err := os.Stat(migrationFile); os.IsNotExist(err) {
-		migrationFile = "../migrations/0001_init.sql"
-	}
-
-	data, err := os.ReadFile(migrationFile)
-	if err != nil {
-		// If migration file is not found, we skip for now (or embed it in production)
-		return nil 
-	}
-
-	_, err = db.Exec(string(data))
-	if err != nil {
-		return fmt.Errorf("migration execution failed: %w", err)
-	}
-
-	return nil
 }

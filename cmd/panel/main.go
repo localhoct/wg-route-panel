@@ -4,29 +4,32 @@ import (
 	"fmt"
 	"log"
 	"os"
-
-	"github.com/yourusername/wg-route-panel/internal/app"
-	"github.com/yourusername/wg-route-panel/internal/config"
 )
 
 func main() {
-	cfgPath := os.Getenv("PANEL_CONFIG_PATH")
-	if cfgPath == "" {
-		cfgPath = "/etc/wg-route-panel/panel.yaml"
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "create-admin":
+			if e := createAdmin(os.Args[2:]); e != nil {
+				log.Fatal(e)
+			}
+			return
+		case "migrate":
+			if e := migrate(); e != nil {
+				log.Fatal(e)
+			}
+			return
+		case "serve":
+			if e := serve(); e != nil {
+				log.Fatal(e)
+			}
+			return
+		default:
+			fmt.Fprintln(os.Stderr, "usage: panel [serve|create-admin|migrate]")
+			os.Exit(2)
+		}
 	}
-
-	cfg, err := config.Load(cfgPath)
-	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
-	}
-
-	application, err := app.New(cfg)
-	if err != nil {
-		log.Fatalf("Failed to initialize app: %v", err)
-	}
-
-	fmt.Printf("Starting WG Route Panel on %s\n", cfg.ListenAddr)
-	if err := application.Run(); err != nil {
-		log.Fatalf("Server error: %v", err)
+	if e := serve(); e != nil {
+		log.Fatal(e)
 	}
 }
