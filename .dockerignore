@@ -1,0 +1,12 @@
+.git
+.github
+.tooling
+bin
+data
+*.db
+*.db-*
+*.log
+*.tar.gz
+.env
+configs/*.local.yaml
+coverage.out

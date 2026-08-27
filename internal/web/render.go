@@ -2,56 +2,30 @@ package web
 
 import (
 	"html/template"
-	"log"
 	"net/http"
+	"os"
 	"path/filepath"
+	"runtime"
 )
 
-var templates *template.Template
+type Renderer struct{ Dir string }
 
-func InitTemplates() {
-	var files []string
-	// Find all html files in web/templates
-	err := filepath.Walk("web/templates", func(path string, info interface{}, err error) error {
-		if err != nil {
-			return err
-		}
-		if filepath.Ext(path) == ".html" {
-			files = append(files, path)
-		}
-		return nil
-	})
-	
-	// Fallback for different execution directories
-	if len(files) == 0 {
-		err = filepath.Walk("../web/templates", func(path string, info interface{}, err error) error {
-			if err != nil {
-				return err
-			}
-			if filepath.Ext(path) == ".html" {
-				files = append(files, path)
-			}
-			return nil
-		})
+func TemplateDir() string {
+	if _, err := os.Stat(filepath.Join("web", "templates", "layout.html")); err == nil {
+		return filepath.Join("web", "templates")
 	}
-
-	if err != nil {
-		log.Printf("Warning: Could not load templates: %v", err)
-		return
-	}
-
-	templates = template.Must(template.ParseFiles(files...))
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "web", "templates"))
 }
 
-func RenderTemplate(w http.ResponseWriter, tmpl string, data interface{}) {
-	if templates == nil {
-		InitTemplates()
+func (r Renderer) Render(w http.ResponseWriter, page string, data any) {
+	t, e := template.ParseFiles(filepath.Join(r.Dir, "layout.html"), filepath.Join(r.Dir, page+".html"))
+	if e != nil {
+		http.Error(w, "template error", 500)
+		return
 	}
-	
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err := templates.ExecuteTemplate(w, "layout.html", data)
-	if err != nil {
-		log.Printf("Template execution error: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	if e = t.ExecuteTemplate(w, "layout", data); e != nil {
+		http.Error(w, "render error", 500)
 	}
 }

@@ -1,20 +1,26 @@
-.PHONY: build run test lint clean install
-
+SHELL := /bin/bash
+BINARY := bin/panel
+.PHONY: build run test lint clean install doctor docker-build docker-up docker-down docker-logs
 build:
-	go build -o bin/panel ./cmd/panel
-
+	go build -trimpath -ldflags="-s -w" -o $(BINARY) ./cmd/panel
 run:
-	go run ./cmd/panel
-
+	PANEL_CONFIG_PATH=configs/panel.local.yaml go run ./cmd/panel serve
 test:
-	go test -v ./...
-
+	go test -race ./...
 lint:
-	gofmt -s -w .
+	test -z "$$(gofmt -l .)" || (gofmt -d .; exit 1)
 	go vet ./...
-
 clean:
-	rm -rf bin/
-
+	rm -rf bin data
 install: build
 	sudo ./scripts/install.sh
+doctor:
+	./scripts/doctor.sh
+docker-build:
+	docker compose build
+docker-up:
+	docker compose up -d --build
+docker-down:
+	docker compose down
+docker-logs:
+	docker compose logs -f panel

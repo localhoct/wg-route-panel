@@ -1,57 +1,38 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -Eeuo pipefail
+[[ $EUID -eq 0 ]] || { echo "Run as root" >&2; exit 1; }
+. /etc/os-release
+[[ "$ID" == ubuntu && ("$VERSION_ID" == "22.04" || "$VERSION_ID" == "24.04") ]] || { echo "Ubuntu 22.04/24.04 required" >&2; exit 1; }
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
 
-echo "🚀 Installing WG Route Panel..."
-
-# Check Ubuntu version
-if ! grep -q "Ubuntu" /etc/os-release; then
-    echo "❌ This script is designed for Ubuntu."
-    exit 1
-fi
-
-# Install dependencies
-echo "📦 Installing system dependencies..."
 apt-get update
-apt-get install -y wireguard wireguard-tools nftables curl ca-certificates
-
-# Create system user
-if ! id "wgpanel" &>/dev/null; then
-    useradd -r -s /bin/false wgpanel
+DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io nftables curl ca-certificates openssl
+if ! docker compose version >/dev/null 2>&1; then
+  DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-v2 \
+    || DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin \
+    || { echo "Docker Compose v2 is required" >&2; exit 1; }
+fi
+systemctl enable --now docker nftables
+install -d -m 0750 data
+if [[ ! -f .env ]]; then
+  umask 077
+  printf 'PANEL_SESSION_SECRET=%s\n' "$(openssl rand -base64 48)" >.env
+  chmod 0600 .env
 fi
 
-# Create directories
-mkdir -p /etc/wg-route-panel/{wireguard,xray,geosite}
-mkdir -p /var/lib/wg-route-panel
-mkdir -p /var/log/wg-route-panel
-
-chown -R wgpanel:wgpanel /etc/wg-route-panel /var/lib/wg-route-panel /var/log/wg-route-panel
-chmod 750 /etc/wg-route-panel
-chmod 600 /etc/wg-route-panel/wireguard/wg0.conf 2>/dev/null || true
-
-# Copy binary (assuming it's in the current directory or built)
-if [ -f ./bin/panel ]; then
-    mkdir -p /opt/wg-route-panel/bin
-    cp ./bin/panel /opt/wg-route-panel/bin/
-    chown root:wgpanel /opt/wg-route-panel/bin/panel
-    chmod 750 /opt/wg-route-panel/bin/panel
+nft -c -f deploy/nftables/wg-route-panel.nft
+if ! nft list table inet wg_route_panel >/dev/null 2>&1; then
+  nft -f deploy/nftables/wg-route-panel.nft
 fi
 
-# Install systemd services
-cp deploy/systemd/panel.service /etc/systemd/system/
-cp deploy/systemd/xray.service /etc/systemd/system/
-systemctl daemon-reload
-
-# Setup nftables
-if [ -f deploy/nftables/wg-route-panel.nft ]; then
-    nft -f deploy/nftables/wg-route-panel.nft
-fi
-
-# Setup sudoers
-cp deploy/sudoers/wg-route-panel.sudoers /etc/sudoers.d/wg-route-panel
-chmod 440 /etc/sudoers.d/wg-route-panel
-
-echo "✅ Installation complete!"
-echo "Next steps:"
-echo "1. Edit /etc/wg-route-panel/panel.yaml"
-echo "2. Run: sudo -u wgpanel /opt/wg-route-panel/bin/panel create-admin"
-echo "3. Run: sudo systemctl enable --now wg-route-panel"
+docker compose build --pull
+cat <<NEXT
+Docker image built. Next:
+1. Review configs/panel.docker.yaml and .env (mode 0600).
+2. Create the administrator:
+   PANEL_ADMIN_PASSWORD_INIT='a-long-random-password' docker compose run --rm panel create-admin
+3. Start the stack: docker compose up -d
+4. Put HTTPS reverse proxying in front of 127.0.0.1:9090, or restrict port 9090 with host firewall rules.
+5. Check health: docker compose ps && curl http://127.0.0.1:9090/healthz
+NEXT
