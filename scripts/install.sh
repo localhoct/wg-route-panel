@@ -30,10 +30,10 @@ docker compose build --pull
 cat <<NEXT
 Docker image built. Next:
 1. Review configs/panel.docker.yaml and .env (mode 0600).
-2. Create the administrator:
-   PANEL_ADMIN_PASSWORD_INIT='a-long-random-password' docker compose run --rm panel create-admin
-3. Start the stack: docker compose up -d
-4. Open http://127.0.0.1:9090 locally. For remote access, add your source CIDR to panel_allow and api_allow or use an SSH tunnel.
-5. Check health: docker compose ps && curl http://127.0.0.1:9090/healthz
-6. Add HTTPS later before exposing port 9090 to the public internet.
+2. Start the stack and create the first administrator:
+   ./scripts/start.sh --no-build
+   For non-interactive setup, set PANEL_ADMIN_USERNAME and PANEL_ADMIN_PASSWORD_INIT.
+3. Open http://127.0.0.1:9090 locally. For remote access, add your source CIDR to panel_allow and api_allow or use an SSH tunnel.
+4. Check health: docker compose ps && curl http://127.0.0.1:9090/healthz
+5. Add HTTPS later before exposing port 9090 to the public internet.
 NEXT

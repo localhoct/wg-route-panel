@@ -49,18 +49,21 @@ git clone https://github.com/localhoct/wg-route-panel.git
 cd wg-route-panel
 sudo ./scripts/install.sh
 
-# Create the only administrator without committing or storing its password.
-sudo env PANEL_ADMIN_PASSWORD_INIT='replace-with-a-long-random-password' \
-  docker compose run --rm panel create-admin
-
-sudo docker compose up -d
-sudo docker compose ps
-curl http://127.0.0.1:9090/healthz
+# Build, create the first administrator, start Compose, and wait for health.
+sudo ./scripts/start.sh
 ```
 
-`install.sh` installs Docker/nftables on supported Ubuntu releases, creates a mode-`0600` `.env` containing a random session secret, validates the nftables policy, and builds the image. Review `.env` and `configs/panel.docker.yaml` before starting production.
+`install.sh` installs Docker/nftables on supported Ubuntu releases, creates a mode-`0600` `.env` containing a random session secret, validates the nftables policy, and builds the image. `start.sh` validates Docker, Compose, `/dev/net/tun`, and nftables; builds the image; interactively creates the first administrator; starts the stack; and waits for the health endpoint. Review `.env` and `configs/panel.docker.yaml` before starting production.
 
-Do not leave the initial password in shell history. Without `PANEL_ADMIN_PASSWORD_INIT`, `create-admin` prompts on standard input.
+For a non-interactive first launch, provide the administrator through environment variables without committing them:
+
+```bash
+sudo env PANEL_ADMIN_USERNAME=admin \
+  PANEL_ADMIN_PASSWORD_INIT='replace-with-a-long-random-password' \
+  ./scripts/start.sh --no-build
+```
+
+Do not leave the initial password in shell history. Run `./scripts/start.sh --help` for `--no-build`, `--skip-firewall`, `--create-admin`, and `--skip-admin` options. A user with Docker daemon access may run the script without `sudo`; nftables setup will use `sudo` when necessary.
 
 ## HTTP on port 9090
 
@@ -133,6 +136,7 @@ When `firewall.enabled` is true, the panel incrementally updates only predefined
 ## Operations
 
 ```bash
+make start
 make docker-build
 make docker-up
 make docker-logs
@@ -140,6 +144,7 @@ make doctor
 make docker-down
 
 # Direct equivalents
+./scripts/start.sh
 docker compose build
 docker compose up -d
 docker compose logs -f panel
