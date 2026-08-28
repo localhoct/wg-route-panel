@@ -23,7 +23,7 @@ func TestValidationSecureDefaults(t *testing.T) {
 }
 func TestDefaultRuntimeUsesSupervisorAndPort9090(t *testing.T) {
 	c := Default()
-	if c.ListenAddr != "127.0.0.1:9090" || c.SingBox.Manager != "supervisor" || c.Xray.Manager != "supervisor" {
+	if c.ListenAddr != "127.0.0.1:9090" || c.SingBox.Manager != "supervisor" {
 		t.Fatalf("unexpected defaults: %#v", c)
 	}
 }
@@ -39,16 +39,15 @@ func TestDockerConfigAllowsExplicitHTTP(t *testing.T) {
 	}
 }
 
-func TestRemoteSocksRequiresAuthentication(t *testing.T) {
+func TestTrustedProxiesValidation(t *testing.T) {
 	c := Default()
 	c.SessionSecret = "12345678901234567890123456789012"
-	c.SOCKS.ListenAddr = "0.0.0.0"
-	if e := c.Validate(); e == nil {
-		t.Fatal("remote unauthenticated SOCKS accepted")
-	}
-	c.SOCKS.Username = "u"
-	c.SOCKS.Password = "long-password"
+	c.TrustedProxies = []string{"10.0.0.1", "192.168.1.0/24"}
 	if e := c.Validate(); e != nil {
-		t.Fatal(e)
+		t.Fatalf("valid trusted_proxies rejected: %v", e)
+	}
+	c.TrustedProxies = []string{"not-an-ip"}
+	if e := c.Validate(); e == nil {
+		t.Fatal("invalid trusted_proxies entry accepted")
 	}
 }

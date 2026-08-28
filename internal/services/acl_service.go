@@ -15,7 +15,7 @@ type ACLService struct {
 }
 
 func (a *ACLService) Add(ctx context.Context, scope, value string) error {
-	if !map[string]bool{"panel": true, "dns": true, "socks": true, "api": true}[scope] {
+	if !map[string]bool{"panel": true, "api": true, "dns": true, "socks": true}[scope] {
 		return errors.New("invalid scope")
 	}
 	cidr, v, e := system.NormalizeCIDR(value)

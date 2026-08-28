@@ -34,6 +34,18 @@ type RuleSetService struct {
 // downloading or parsing the multi-megabyte source database itself.
 const RuleSetBaseURL = "https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set/geosite-%s.srs"
 
+// RuleSetBaseURLOverride lets tests point tag validation/URL generation at
+// a local httptest server instead of the real SagerNet repository. It must
+// never be set outside of tests.
+var RuleSetBaseURLOverride = ""
+
+func ruleSetBaseURL() string {
+	if RuleSetBaseURLOverride != "" {
+		return RuleSetBaseURLOverride
+	}
+	return RuleSetBaseURL
+}
+
 var tagFormatRE = regexp.MustCompile(`^[a-z][a-z0-9_-]{1,48}$`)
 
 func (g *RuleSetService) client() *http.Client {
@@ -52,7 +64,7 @@ func (g *RuleSetService) ValidateTag(ctx context.Context, tag string) error {
 	if !tagFormatRE.MatchString(tag) {
 		return errors.New("invalid rule-set tag")
 	}
-	req, e := http.NewRequestWithContext(ctx, http.MethodHead, fmt.Sprintf(RuleSetBaseURL, tag), nil)
+	req, e := http.NewRequestWithContext(ctx, http.MethodHead, fmt.Sprintf(ruleSetBaseURL(), tag), nil)
 	if e != nil {
 		return e
 	}
@@ -83,5 +95,5 @@ func (g *RuleSetService) Assign(ctx context.Context, tag, action string, selecte
 // RuleSetURL returns the sing-box "remote"/"binary" rule-set source URL
 // for a given tag, for use by the unified config generator.
 func RuleSetURL(tag string) string {
-	return fmt.Sprintf(RuleSetBaseURL, tag)
+	return fmt.Sprintf(ruleSetBaseURL(), tag)
 }
