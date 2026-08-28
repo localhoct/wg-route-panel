@@ -26,14 +26,14 @@ func TestACLApplication(t *testing.T) {
 	defer db.Close()
 	calls := []call{}
 	s := ACLService{DB: db, NFT: system.NFTables{Runner: fakeRunner{&calls}}, Enabled: true}
-	if e = s.Add(context.Background(), "dns", "192.0.2.1"); e != nil {
+	if e = s.Add(context.Background(), "socks", "192.0.2.1"); e != nil {
 		t.Fatal(e)
 	}
 	rules, e := repository.ACLRules(context.Background(), db)
 	if e != nil || len(rules) != 1 || !rules[0].Applied {
 		t.Fatalf("rules=%v err=%v", rules, e)
 	}
-	if len(calls) != 1 || calls[0].name != "sudo" || len(calls[0].args) != 4 || calls[0].args[2] != "dns_allow" {
+	if len(calls) != 1 || calls[0].name != "sudo" || len(calls[0].args) != 4 || calls[0].args[2] != "socks_allow" {
 		t.Fatalf("unexpected nft call %#v", calls)
 	}
 }

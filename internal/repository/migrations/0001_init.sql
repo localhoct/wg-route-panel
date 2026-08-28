@@ -18,7 +18,11 @@ CREATE INDEX IF NOT EXISTS idx_geosite_selected ON geosite_categories(selected,a
 -- nftables source allow-lists. "applied" here is meaningful: it tracks whether the rule
 -- has actually been pushed into the live nftables set (a real incremental apply step,
 -- unlike dns_rules above).
-CREATE TABLE IF NOT EXISTS acl_rules(id INTEGER PRIMARY KEY,scope TEXT NOT NULL CHECK(scope IN ('panel','api','dns','socks')),cidr TEXT NOT NULL,ip_version INTEGER NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,applied INTEGER NOT NULL DEFAULT 0,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,UNIQUE(scope,cidr));
+-- No 'dns' scope: DNS is intentionally public by default (see the DNS
+-- settings page / deploy/nftables/wg-route-panel.nft), so there is nothing
+-- to allow-list for it. panel/api gate the web UI/JSON API; socks gates the
+-- SOCKS5 listener when bound beyond loopback.
+CREATE TABLE IF NOT EXISTS acl_rules(id INTEGER PRIMARY KEY,scope TEXT NOT NULL CHECK(scope IN ('panel','api','socks')),cidr TEXT NOT NULL,ip_version INTEGER NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,applied INTEGER NOT NULL DEFAULT 0,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,UNIQUE(scope,cidr));
 CREATE INDEX IF NOT EXISTS idx_acl_scope ON acl_rules(scope,enabled);
 CREATE TABLE IF NOT EXISTS audit_logs(id INTEGER PRIMARY KEY,user_id INTEGER,action TEXT NOT NULL,details TEXT,ip_address TEXT,created_at DATETIME DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL);
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs(created_at DESC);

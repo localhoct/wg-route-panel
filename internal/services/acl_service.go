@@ -14,8 +14,13 @@ type ACLService struct {
 	Enabled bool
 }
 
+// Valid ACL scopes intentionally do not include "dns": DNS is public by
+// design (see deploy/nftables/wg-route-panel.nft and the panel's DNS
+// settings page), so there is no allow-list to manage for it. panel/api
+// gate access to the web UI/JSON API; socks gates the SOCKS5 listener when
+// it is bound beyond loopback.
 func (a *ACLService) Add(ctx context.Context, scope, value string) error {
-	if !map[string]bool{"panel": true, "api": true, "dns": true, "socks": true}[scope] {
+	if !map[string]bool{"panel": true, "api": true, "socks": true}[scope] {
 		return errors.New("invalid scope")
 	}
 	cidr, v, e := system.NormalizeCIDR(value)
