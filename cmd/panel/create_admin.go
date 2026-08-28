@@ -10,6 +10,13 @@ import (
 	"strings"
 )
 
+// createAdmin is a CLI fallback, not the normal way to bootstrap the panel.
+// Day-to-day, the first administrator is created from the browser at
+// /setup (see internal/api/router.go's Setup Wizard), which only requires
+// opening the panel - no SSH access needed. This command still exists for
+// disaster recovery (e.g. every administrator account is locked out or the
+// database was restored without one) and always creates an additional
+// user even if one already exists; it does not replace or reset passwords.
 func createAdmin(args []string) error {
 	c, e := load()
 	if e != nil {

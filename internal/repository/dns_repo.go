@@ -7,7 +7,7 @@ import (
 )
 
 func DNSRules(ctx context.Context, db *sql.DB) ([]models.DNSRule, error) {
-	rows, e := db.QueryContext(ctx, "SELECT id,domain,action,COALESCE(static_ip,''),enabled,applied,created_at FROM dns_rules ORDER BY domain")
+	rows, e := db.QueryContext(ctx, "SELECT id,domain,action,COALESCE(static_ip,''),enabled,created_at FROM dns_rules ORDER BY domain")
 	if e != nil {
 		return nil, e
 	}
@@ -15,7 +15,7 @@ func DNSRules(ctx context.Context, db *sql.DB) ([]models.DNSRule, error) {
 	var out []models.DNSRule
 	for rows.Next() {
 		var x models.DNSRule
-		if e = rows.Scan(&x.ID, &x.Domain, &x.Action, &x.StaticIP, &x.Enabled, &x.Applied, &x.CreatedAt); e != nil {
+		if e = rows.Scan(&x.ID, &x.Domain, &x.Action, &x.StaticIP, &x.Enabled, &x.CreatedAt); e != nil {
 			return nil, e
 		}
 		out = append(out, x)

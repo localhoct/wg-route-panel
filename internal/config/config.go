@@ -14,6 +14,14 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Config holds only bootstrap/infrastructure settings that must exist
+// before the database is available (listen address, secrets, binary
+// paths, logging). Everything an operator tunes routinely (DNS
+// upstreams/listener, SOCKS credentials/listener, geosite rule-set
+// selections, per-domain DNS rules, ACLs, the administrator password)
+// lives in the SQLite database and is managed entirely from the web
+// panel; see internal/repository/settings_repo.go and the corresponding
+// Settings/DNS/SOCKS/geosite pages.
 type Config struct {
 	ListenAddr        string        `yaml:"listen_addr"`
 	BaseURL           string        `yaml:"base_url"`
@@ -24,10 +32,6 @@ type Config struct {
 	TrustedProxies    []string      `yaml:"trusted_proxies"`
 	WireGuard         WGConfig      `yaml:"wireguard"`
 	SingBox           SingBoxConfig `yaml:"sing_box"`
-	Xray              XrayConfig    `yaml:"xray"`
-	Geosite           GeositeConfig `yaml:"geosite"`
-	DNS               DNSConfig     `yaml:"dns"`
-	SOCKS             SOCKSConfig   `yaml:"socks"`
 	Firewall          FWConfig      `yaml:"firewall"`
 	Log               LogConfig     `yaml:"log"`
 }
@@ -39,32 +43,9 @@ type WGConfig struct {
 type SingBoxConfig struct {
 	BinaryPath    string `yaml:"binary_path"`
 	ConfigPath    string `yaml:"config_path"`
+	CacheFilePath string `yaml:"cache_file_path"`
 	Manager       string `yaml:"manager"`
 	SupervisorCtl string `yaml:"supervisorctl_path"`
-}
-type XrayConfig struct {
-	BinaryPath    string `yaml:"binary_path"`
-	ConfigPath    string `yaml:"config_path"`
-	Manager       string `yaml:"manager"`
-	ServiceName   string `yaml:"service_name"`
-	SupervisorCtl string `yaml:"supervisorctl_path"`
-}
-type GeositeConfig struct {
-	Path      string `yaml:"path"`
-	UpdateURL string `yaml:"update_url"`
-	SHA256    string `yaml:"sha256"`
-}
-type DNSConfig struct {
-	ListenAddr     string `yaml:"listen_addr"`
-	Port           int    `yaml:"port"`
-	DirectUpstream string `yaml:"direct_upstream"`
-	TunnelUpstream string `yaml:"tunnel_upstream"`
-}
-type SOCKSConfig struct {
-	ListenAddr string `yaml:"listen_addr"`
-	Port       int    `yaml:"port"`
-	Username   string `yaml:"username"`
-	Password   string `yaml:"password"`
 }
 type FWConfig struct {
 	Enabled bool `yaml:"enabled"`
@@ -79,27 +60,16 @@ func Default() *Config {
 		ListenAddr: "127.0.0.1:9090",
 		BaseURL:    "http://127.0.0.1:9090",
 		DBPath:     "./data/panel.db",
-		WireGuard:  WGConfig{InterfaceName: "wg0", ConfigPath: "./data/wg0.conf"},
+		WireGuard:  WGConfig{InterfaceName: "wg0", ConfigPath: "./data/wireguard/wg0.conf"},
 		SingBox: SingBoxConfig{
 			BinaryPath:    "/usr/local/bin/sing-box",
-			ConfigPath:    "./data/sing-box.json",
+			ConfigPath:    "./data/sing-box/config.json",
+			CacheFilePath: "./data/sing-box/cache.db",
 			Manager:       "supervisor",
 			SupervisorCtl: "/usr/bin/supervisorctl",
 		},
-		Xray: XrayConfig{
-			BinaryPath:    "/usr/local/bin/xray",
-			ConfigPath:    "./data/xray.json",
-			Manager:       "supervisor",
-			ServiceName:   "xray",
-			SupervisorCtl: "/usr/bin/supervisorctl",
-		},
-		Geosite: GeositeConfig{Path: "./data/geosite.dat", UpdateURL: "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat"},
-		DNS:     DNSConfig{ListenAddr: "127.0.0.1", Port: 5353, DirectUpstream: "1.1.1.1", TunnelUpstream: "8.8.8.8"},
-		SOCKS:   SOCKSConfig{ListenAddr: "127.0.0.1", Port: 1080},
-		Firewall: FWConfig{
-			Enabled: false,
-		},
-		Log: LogConfig{Level: "info", File: "./data/panel.log"},
+		Firewall: FWConfig{Enabled: false},
+		Log:      LogConfig{Level: "info", File: "./data/panel.log"},
 	}
 }
 func Load(path string) (*Config, error) {
@@ -116,12 +86,6 @@ func Load(path string) (*Config, error) {
 	}
 	if v := os.Getenv("PANEL_DB_PATH"); v != "" {
 		c.DBPath = v
-	}
-	if v := os.Getenv("PANEL_SOCKS_USERNAME"); v != "" {
-		c.SOCKS.Username = v
-	}
-	if v := os.Getenv("PANEL_SOCKS_PASSWORD"); v != "" {
-		c.SOCKS.Password = v
 	}
 	if c.SessionSecret == "" {
 		if strings.HasPrefix(c.ListenAddr, "127.0.0.1:") {
@@ -155,27 +119,25 @@ func (c *Config) Validate() error {
 	if c.WireGuard.InterfaceName == "" || strings.ContainsAny(c.WireGuard.InterfaceName, "/ \\;'") {
 		return errors.New("invalid WireGuard interface name")
 	}
-	if c.SOCKS.ListenAddr != "127.0.0.1" && c.SOCKS.ListenAddr != "::1" && (c.SOCKS.Username == "" || c.SOCKS.Password == "") {
-		return errors.New("non-loopback SOCKS requires PANEL_SOCKS_USERNAME and PANEL_SOCKS_PASSWORD")
-	}
 	if c.SingBox.Manager != "supervisor" && c.SingBox.Manager != "systemd" {
 		return errors.New("sing_box.manager must be supervisor or systemd")
-	}
-	if c.Xray.Manager != "supervisor" && c.Xray.Manager != "systemd" {
-		return errors.New("xray.manager must be supervisor or systemd")
 	}
 	if c.SingBox.Manager == "supervisor" && c.SingBox.SupervisorCtl == "" {
 		return errors.New("sing_box.supervisorctl_path is required for supervisor")
 	}
-	if c.Xray.Manager == "supervisor" && c.Xray.SupervisorCtl == "" {
-		return errors.New("xray.supervisorctl_path is required for supervisor")
-	}
-	for _, p := range []string{c.DBPath, c.WireGuard.ConfigPath, c.SingBox.BinaryPath, c.SingBox.ConfigPath, c.Xray.BinaryPath, c.Xray.ConfigPath, c.Geosite.Path} {
+	for _, p := range []string{c.DBPath, c.WireGuard.ConfigPath, c.SingBox.BinaryPath, c.SingBox.ConfigPath} {
 		if p == "" {
 			return errors.New("required path is empty")
 		}
 		if filepath.Clean(p) == "." {
 			return errors.New("invalid path")
+		}
+	}
+	for _, proxy := range c.TrustedProxies {
+		if _, _, e := net.ParseCIDR(proxy); e != nil {
+			if net.ParseIP(proxy) == nil {
+				return fmt.Errorf("trusted_proxies: invalid entry %q", proxy)
+			}
 		}
 	}
 	return nil

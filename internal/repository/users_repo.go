@@ -22,3 +22,13 @@ func UpdatePassword(ctx context.Context, db *sql.DB, id int64, h string) error {
 	_, e := db.ExecContext(ctx, "UPDATE users SET password_hash=?,updated_at=CURRENT_TIMESTAMP WHERE id=?", h, id)
 	return e
 }
+func PasswordHashByID(ctx context.Context, db *sql.DB, id int64) (string, error) {
+	var h string
+	e := db.QueryRowContext(ctx, "SELECT password_hash FROM users WHERE id=?", id).Scan(&h)
+	return h, e
+}
+func UserCount(ctx context.Context, db *sql.DB) (int, error) {
+	var n int
+	e := db.QueryRowContext(ctx, "SELECT count(*) FROM users").Scan(&n)
+	return n, e
+}
