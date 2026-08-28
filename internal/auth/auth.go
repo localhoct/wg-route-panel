@@ -1,8 +1,9 @@
 package auth
 
 import (
-	"database/sql"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -31,22 +32,56 @@ func (l *AttemptLimiter) Allow(key string) bool {
 	l.m[key] = append(a, now)
 	return true
 }
-func ClientIP(r *http.Request) string {
-	h, _, e := netSplit(r.RemoteAddr)
-	if e == nil {
-		return h
+
+// ClientIP returns the best-effort real client address for the request.
+// The direct TCP peer (r.RemoteAddr) is only replaced by a proxy-supplied
+// header when that peer's address is explicitly listed in trustedProxies;
+// otherwise forwarding headers from untrusted clients could be used to
+// spoof audit logs or bypass the login rate limiter.
+func ClientIP(r *http.Request, trustedProxies []string) string {
+	direct := directIP(r.RemoteAddr)
+	if direct == "" || !ipInList(direct, trustedProxies) {
+		if direct != "" {
+			return direct
+		}
+		return r.RemoteAddr
 	}
-	return r.RemoteAddr
-}
-func netSplit(s string) (string, string, error) { return splitHostPort(s) }
-
-var splitHostPort = func(s string) (string, string, error) { return netSplitHostPort(s) }
-
-func netSplitHostPort(s string) (string, string, error) {
-	for i := len(s) - 1; i >= 0; i-- {
-		if s[i] == ':' {
-			return s[:i], s[i+1:], nil
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		if candidate := strings.TrimSpace(parts[0]); candidate != "" {
+			return candidate
 		}
 	}
-	return "", "", sql.ErrNoRows
+	if xr := r.Header.Get("X-Real-IP"); xr != "" {
+		return strings.TrimSpace(xr)
+	}
+	return direct
+}
+
+func directIP(remoteAddr string) string {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		// RemoteAddr without a port (rare, but possible in tests).
+		if net.ParseIP(remoteAddr) != nil {
+			return remoteAddr
+		}
+		return ""
+	}
+	return host
+}
+
+func ipInList(ip string, list []string) bool {
+	parsed := net.ParseIP(ip)
+	if parsed == nil {
+		return false
+	}
+	for _, entry := range list {
+		if entry == ip {
+			return true
+		}
+		if _, cidr, err := net.ParseCIDR(entry); err == nil && cidr.Contains(parsed) {
+			return true
+		}
+	}
+	return false
 }
