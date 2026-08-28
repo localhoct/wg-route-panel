@@ -8,7 +8,7 @@ WG Route Panel is a secure, self-hosted administration panel for a **sing-box-on
 
 - **Everything from the browser.** Creating the first administrator, uploading a WireGuard config, changing DNS/SOCKS listener settings and credentials, and selecting geosite categories are all done from the web panel. You never need to SSH into the server for routine administration.
 - **DNS is public by default.** The whole point of running this panel is that clients out on the internet can point their DNS at this server's public IP and have it resolve/route/block through the sing-box tunnel. Port 53 has no allow-list and is not gated by nftables — that's intentional, not an oversight.
-- **Everything else is default-deny remotely.** The panel/API (port 9090) and the SOCKS5 proxy (port 1080, off by default) are loopback-only until an operator explicitly adds a source CIDR from the panel's Access Control page.
+- **Everything else is default-deny remotely.** The panel/API (port 3389) and the SOCKS5 proxy (port 1080, off by default) are loopback-only until an operator explicitly adds a source CIDR from the panel's Access Control page.
 - **sing-box does it all.** A single sing-box process owns the WireGuard endpoint, the `mixed` SOCKS4/5+HTTP inbound, the DNS-intercepting inbounds, and geosite-based routing via SagerNet's remote `.srs` rule-sets — no separate DNS/proxy process, no local geo-data downloads.
 
 ## Features
@@ -28,17 +28,17 @@ WG Route Panel is a secure, self-hosted administration panel for a **sing-box-on
 
 ```text
 Public internet ---- UDP/TCP :53 (no ACL, by design) ----> sing-box DNS inbounds --sniff+hijack-dns--> dns rules / geosite / route
-Browser/API --HTTP:9090--> host-network Docker container
+Browser/API --HTTP:3389--> host-network Docker container
                                          |-- Go panel (user wgpanel) --> SQLite (rules, settings, users, audit log)
                                          `-- Supervisor
                                               `-- sing-box (root, NET_ADMIN)
                                                    |-- wireguard endpoint --> wg0 system interface
                                                    |-- mixed inbound (SOCKS5/SOCKS4/HTTP) --> route rules
                                                    `-- direct inbounds :53 --> DNS sniff/hijack --> dns rules / geosite rule-sets
-Clients -------- host nftables ACL (panel/api/socks only) -------> panel:9090 / socks:1080
+Clients -------- host nftables ACL (panel/api/socks only) -------> panel:3389 / socks:1080
 ```
 
-The container uses `network_mode: host` so the sing-box-created `wg0` interface and nftables rules operate in the host network namespace. Compose port publishing is not used: the panel listens directly on **TCP port 9090** and sing-box listens directly on the ports configured from the DNS/SOCKS5 pages (**UDP/TCP 53** by default for DNS, **TCP 1080** for SOCKS5 when enabled). The container receives only `NET_ADMIN` plus `/dev/net/tun`; it is not privileged.
+The container uses `network_mode: host` so the sing-box-created `wg0` interface and nftables rules operate in the host network namespace. Compose port publishing is not used: the panel listens directly on **TCP port 3389** and sing-box listens directly on the ports configured from the DNS/SOCKS5 pages (**UDP/TCP 53** by default for DNS, **TCP 1080** for SOCKS5 when enabled). The container receives only `NET_ADMIN` plus `/dev/net/tun`; it is not privileged.
 
 sing-box 1.13.19 is pinned and SHA-256-verified in `Dockerfile`.
 
@@ -48,7 +48,7 @@ sing-box 1.13.19 is pinned and SHA-256-verified in `Dockerfile`.
 - Docker Engine with Docker Compose v2.
 - `/dev/net/tun` and permission to add `NET_ADMIN` to the container.
 - nftables on the host when panel-managed ACLs are enabled.
-- Free host ports: panel `9090/tcp`, DNS `53/tcp+udp` (public by design), and SOCKS `1080/tcp` if you enable it.
+- Free host ports: panel `3389/tcp`, DNS `53/tcp+udp` (public by design), and SOCKS `1080/tcp` if you enable it.
 
 No host Go toolchain, `wireguard-tools`, `wg-quick`, or sing-box installation is required — everything ships inside the Docker image.
 
@@ -67,7 +67,7 @@ sudo ./scripts/start.sh
 
 Once the script reports the panel is healthy:
 
-1. Open `http://<server-ip-or-127.0.0.1>:9090/setup` in a browser.
+1. Open `http://<server-ip-or-127.0.0.1>:3389/setup` in a browser.
 2. Create the first administrator (username + password, minimum 12 characters). This page disappears once an administrator exists.
 3. Sign in at `/login` and continue setup from the dashboard (see "How it works" below).
 
@@ -83,22 +83,22 @@ docker compose run --rm panel create-admin myrecoveryadmin
 
 This is a fallback only — the supported day-one flow is the `/setup` wizard in the browser.
 
-## HTTP on port 9090
+## HTTP on port 3389
 
-The included Docker configuration listens on `0.0.0.0:9090` over plain HTTP with `allow_insecure_http: true` and `secure_cookies: false`. Open `http://127.0.0.1:9090` on the server after starting Compose. For another device, first add its address/subnet to both `panel_allow` and `api_allow` from the panel's **Access Control** page (or with `nft`/`scripts/nft-element.sh` directly). This explicit opt-in is suitable only for a trusted LAN, an SSH tunnel, or a temporary setup.
+The included Docker configuration listens on `0.0.0.0:3389` over plain HTTP with `allow_insecure_http: true` and `secure_cookies: false`. Open `http://127.0.0.1:3389` on the server after starting Compose. For another device, first add its address/subnet to both `panel_allow` and `api_allow` from the panel's **Access Control** page (or with `nft`/`scripts/nft-element.sh` directly). This explicit opt-in is suitable only for a trusted LAN, an SSH tunnel, or a temporary setup.
 
 When you are ready for HTTPS, place Caddy or Nginx in front of it. Example Caddy configuration:
 
 ```caddy
 panel.example.com {
   encode zstd gzip
-  reverse_proxy 127.0.0.1:9090
+  reverse_proxy 127.0.0.1:3389
 }
 ```
 
 For HTTPS, set `base_url: "https://panel.example.com"` in `configs/panel.docker.yaml`, change `secure_cookies` to `true`, and remove or disable `allow_insecure_http`. The health endpoint (`/healthz`) is intentionally unauthenticated and returns only `{ "status": "ok" }`.
 
-Never expose the plain-HTTP panel across the public internet because credentials and session cookies can be intercepted. (This restriction is specific to the *panel* on port 9090 — the *DNS* service on port 53 is meant to be public, see below.)
+Never expose the plain-HTTP panel across the public internet because credentials and session cookies can be intercepted. (This restriction is specific to the *panel* on port 3389 — the *DNS* service on port 53 is meant to be public, see below.)
 
 ## How it works, end to end
 
@@ -187,7 +187,7 @@ Open **Access Control**. This page manages the nftables allow-lists for the **pa
 
 ## ACL and nftables
 
-`deploy/nftables/wg-route-panel.nft` creates `table inet wg_route_panel`. It defaults to loopback-only access for the panel (9090) and SOCKS5 (1080), and does **not** touch DNS (53) or SSH policy at all. Review it against the host's existing firewall before applying it.
+`deploy/nftables/wg-route-panel.nft` creates `table inet wg_route_panel`. It defaults to loopback-only access for the panel (3389) and SOCKS5 (1080), and does **not** touch DNS (53) or SSH policy at all. Review it against the host's existing firewall before applying it.
 
 ```bash
 sudo nft -c -f deploy/nftables/wg-route-panel.nft
@@ -234,6 +234,25 @@ PANEL_SESSION_SECRET=<at-least-32-random-characters>
 
 Never commit `.env`, WireGuard keys, database files, TOTP seeds, backups, or production configuration containing private data.
 
+### Changing the panel port
+
+Because the container uses `network_mode: host`, the port the panel listens on is not remapped by Compose — whatever you put in `listen_addr` is the real port on the host. Changing it therefore touches a few files that must stay in sync (all shown here for the default `3389`, replace with your chosen port):
+
+1. `configs/panel.docker.yaml` — `listen_addr: "0.0.0.0:<port>"` and `base_url: "http://localhost:<port>"` (or `https://your-domain` if behind a reverse proxy).
+2. `deploy/nftables/wg-route-panel.nft` — every `tcp dport 3389 ...` line in the `input` chain.
+3. `Dockerfile` — the `EXPOSE` line and the `HEALTHCHECK` URL.
+4. `docker-compose.yml` — the `healthcheck.test` URL.
+
+Then re-apply and restart:
+
+```bash
+sudo nft -f deploy/nftables/wg-route-panel.nft   # picks up the new port in the firewall
+docker compose build                              # Dockerfile changed (HEALTHCHECK)
+docker compose up -d
+```
+
+Open `http://<server-ip>:<new-port>/setup` (or `/login`) afterward. If you also changed `panel_allow`/`api_allow` source CIDRs, redo that from the Access Control page or `scripts/nft-element.sh`.
+
 ## Backup, restore, and uninstall
 
 ```bash
@@ -261,7 +280,7 @@ The repository CI workflow runs formatting, vet, race tests, and a Go build.
 
 ## Security notes
 
-- Plain HTTP on 9090 is enabled only as an explicit temporary opt-in for the *panel*; limit it to localhost or trusted source ACLs and enable HTTPS before internet exposure. This does **not** apply to DNS on port 53, which is meant to be public.
+- Plain HTTP on 3389 is enabled only as an explicit temporary opt-in for the *panel*; limit it to localhost or trusted source ACLs and enable HTTPS before internet exposure. This does **not** apply to DNS on port 53, which is meant to be public.
 - Host networking and `NET_ADMIN` are security-sensitive. Keep the image pinned, inspect updates, and never add `privileged: true`.
 - Restrict Docker daemon access; membership in the Docker group is effectively root access.
 - Use MFA (TOTP), long unique credentials, SSH keys, a management network, automatic security updates, and a recovery console.

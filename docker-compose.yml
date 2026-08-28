@@ -19,7 +19,7 @@ services:
       - ./data:/var/lib/wg-route-panel
       - ./configs/panel.docker.yaml:/etc/wg-route-panel/panel.yaml:ro
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9090/healthz"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3389/healthz"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -57,8 +57,8 @@ type LogConfig struct {
 
 func Default() *Config {
 	return &Config{
-		ListenAddr: "127.0.0.1:9090",
-		BaseURL:    "http://127.0.0.1:9090",
+		ListenAddr: "127.0.0.1:3389",
+		BaseURL:    "http://127.0.0.1:3389",
 		DBPath:     "./data/panel.db",
 		WireGuard:  WGConfig{InterfaceName: "wg0", ConfigPath: "./data/wireguard/wg0.conf"},
 		SingBox: SingBoxConfig{

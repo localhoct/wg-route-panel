@@ -85,12 +85,12 @@ fi
 docker compose up -d
 
 for _ in $(seq 1 30); do
-  if curl -fsS http://127.0.0.1:9090/healthz >/dev/null 2>&1; then
+  if curl -fsS http://127.0.0.1:3389/healthz >/dev/null 2>&1; then
     docker compose ps
     cat <<'READY'
 WG Route Panel is ready.
 
-Open http://127.0.0.1:9090/setup in a browser to create the first
+Open http://127.0.0.1:3389/setup in a browser to create the first
 administrator account (only shown until one exists) - no SSH needed.
 For remote/LAN access to the panel itself, allow the client CIDR in both
 panel_allow and api_allow (see the panel's Access Control page, or
@@ -105,4 +105,4 @@ done
 
 docker compose ps
 docker compose logs --tail=100 panel >&2
-die "the panel did not become healthy on port 9090"
+die "the panel did not become healthy on port 3389"

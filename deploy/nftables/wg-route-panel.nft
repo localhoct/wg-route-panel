@@ -11,11 +11,11 @@ table inet wg_route_panel {
  set api_allow6 { type ipv6_addr; flags interval; elements = { ::1 } }
  chain input {
   type filter hook input priority filter; policy accept;
-  tcp dport 9090 ip saddr @panel_allow accept
-  tcp dport 9090 ip saddr @api_allow accept
-  tcp dport 9090 ip6 saddr @panel_allow6 accept
-  tcp dport 9090 ip6 saddr @api_allow6 accept
-  tcp dport 9090 drop
+  tcp dport 3389 ip saddr @panel_allow accept
+  tcp dport 3389 ip saddr @api_allow accept
+  tcp dport 3389 ip6 saddr @panel_allow6 accept
+  tcp dport 3389 ip6 saddr @api_allow6 accept
+  tcp dport 3389 drop
   tcp dport 1080 ip saddr != @socks_allow drop
   tcp dport 1080 ip6 saddr != @socks_allow6 drop
  }

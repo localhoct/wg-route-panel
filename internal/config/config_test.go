@@ -8,7 +8,7 @@ func TestValidationSecureDefaults(t *testing.T) {
 	if e := c.Validate(); e != nil {
 		t.Fatal(e)
 	}
-	c.ListenAddr = "0.0.0.0:9090"
+	c.ListenAddr = "0.0.0.0:3389"
 	if e := c.Validate(); e == nil {
 		t.Fatal("insecure public HTTP accepted without explicit opt-in")
 	}
@@ -21,9 +21,9 @@ func TestValidationSecureDefaults(t *testing.T) {
 		t.Fatal("secure cookies accepted with HTTP base URL")
 	}
 }
-func TestDefaultRuntimeUsesSupervisorAndPort9090(t *testing.T) {
+func TestDefaultRuntimeUsesSupervisorAndPort3389(t *testing.T) {
 	c := Default()
-	if c.ListenAddr != "127.0.0.1:9090" || c.SingBox.Manager != "supervisor" {
+	if c.ListenAddr != "127.0.0.1:3389" || c.SingBox.Manager != "supervisor" {
 		t.Fatalf("unexpected defaults: %#v", c)
 	}
 }
@@ -34,7 +34,7 @@ func TestDockerConfigAllowsExplicitHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.ListenAddr != "0.0.0.0:9090" || c.BaseURL != "http://localhost:9090" || !c.AllowInsecureHTTP || c.SecureCookies {
+	if c.ListenAddr != "0.0.0.0:3389" || c.BaseURL != "http://localhost:3389" || !c.AllowInsecureHTTP || c.SecureCookies {
 		t.Fatalf("unexpected Docker HTTP configuration: %#v", c)
 	}
 }
