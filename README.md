@@ -278,6 +278,21 @@ PANEL_SESSION_SECRET="$(openssl rand -base64 48)" docker compose build
 
 The repository CI workflow runs formatting, vet, race tests, and a Go build.
 
+### Vendored dependencies
+
+All third-party Go dependencies are vendored into `./vendor` and committed to
+the repository. `Dockerfile`, `Makefile`, and CI all build with `-mod=vendor`,
+so `go mod download`/`go build` never need to reach `proxy.golang.org` or any
+other network endpoint — the Docker build works even on hosts with
+restrictive egress or unreliable DNS to the Go module proxy. After adding or
+upgrading a dependency (`go get ...`), refresh the vendor tree and commit the
+result:
+
+```bash
+make vendor   # runs go mod tidy && go mod vendor, then a vendored build check
+git add go.mod go.sum vendor
+```
+
 ## Security notes
 
 - Plain HTTP on 3389 is enabled only as an explicit temporary opt-in for the *panel*; limit it to localhost or trusted source ACLs and enable HTTPS before internet exposure. This does **not** apply to DNS on port 53, which is meant to be public.
