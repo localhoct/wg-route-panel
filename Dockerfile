@@ -39,6 +39,6 @@ COPY scripts/nft-element.sh /usr/local/sbin/wgpanel-nft-element
 RUN chmod 0755 /usr/local/bin/docker-entrypoint.sh /usr/local/sbin/wgpanel-nft-element \
     && install -d -m 0750 -o wgpanel -g wgpanel /var/lib/wg-route-panel /etc/wg-route-panel
 ENV PANEL_CONFIG_PATH=/etc/wg-route-panel/panel.yaml
-EXPOSE 9090 53/udp 53/tcp
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD curl -fsS http://127.0.0.1:9090/healthz || exit 1
+EXPOSE 3389 53/udp 53/tcp
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 CMD curl -fsS http://127.0.0.1:3389/healthz || exit 1
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]

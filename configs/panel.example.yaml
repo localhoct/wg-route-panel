@@ -1,4 +1,4 @@
-listen_addr: "127.0.0.1:9090"
+listen_addr: "127.0.0.1:3389"
 base_url: "https://panel.example.com"
 session_secret: "" # set PANEL_SESSION_SECRET (32+ random chars)
 db_path: "/var/lib/wg-route-panel/panel.db"

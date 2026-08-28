@@ -32,11 +32,11 @@ Docker image built. Next:
 1. Review configs/panel.docker.yaml and .env (mode 0600).
 2. Start the stack:
    ./scripts/start.sh --no-build
-3. Open http://127.0.0.1:9090/setup locally and create the first administrator
+3. Open http://127.0.0.1:3389/setup locally and create the first administrator
    there (shown automatically until one exists) - no SSH needed. For remote
    access to the panel itself, add your source CIDR to panel_allow and
    api_allow (from the panel's Access Control page) or use an SSH tunnel.
    DNS on port 53 is public by design and needs no ACL entry.
-4. Check health: docker compose ps && curl http://127.0.0.1:9090/healthz
-5. Add HTTPS later before exposing port 9090 to the public internet.
+4. Check health: docker compose ps && curl http://127.0.0.1:3389/healthz
+5. Add HTTPS later before exposing port 3389 to the public internet.
 NEXT
