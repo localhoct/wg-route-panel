@@ -1,10 +1,13 @@
 # syntax=docker/dockerfile:1.7
 FROM golang:1.23-bookworm AS builder
 WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/panel ./cmd/panel
+# Dependencies are vendored in ./vendor (see go.mod "vendor" directory and
+# `make vendor`), so this build never needs to reach proxy.golang.org or any
+# other network endpoint - it works even on hosts with restrictive egress
+# or unreliable DNS. If you add/upgrade a dependency, run `go mod vendor`
+# locally and commit the updated vendor/ directory before rebuilding.
+RUN CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags="-s -w" -o /out/panel ./cmd/panel
 
 FROM debian:bookworm-slim
 ARG TARGETARCH
